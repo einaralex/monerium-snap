@@ -1,21 +1,20 @@
 import { OnRpcRequestHandler } from '@metamask/snap-types';
 
-export const onRpcRequest: OnRpcRequestHandler = async ({
-  origin: originLocation,
-  request,
-}) => {
-  let state = await wallet.request({
+const updateState = async (newState: any) => {
+  return wallet.request({
+    method: 'snap_manageState',
+    params: ['update', newState],
+  });
+};
+export const onRpcRequest: OnRpcRequestHandler = async ({ request }) => {
+  const state = await wallet.request({
     method: 'snap_manageState',
     params: ['get'],
   });
 
   if (!state) {
-    state = { token: '' };
     // initialize state if empty and set default data
-    await wallet.request({
-      method: 'snap_manageState',
-      params: ['update', state],
-    });
+    await updateState({ token: '' });
   }
 
   let access_token = '';
@@ -23,9 +22,38 @@ export const onRpcRequest: OnRpcRequestHandler = async ({
   switch (request.method) {
     case 'monerium_get_access_token':
       return await state?.token;
-    case 'linkToMonerium':
-      return await linkToMonerium();
-    case 'connectToMonnerium':
+    case 'inApp':
+      return await wallet.request({
+        method: 'snap_notify',
+        params: [
+          {
+            type: 'inApp',
+            message: `Hello!`,
+          },
+        ],
+      });
+    case 'native':
+      return await wallet.request({
+        method: 'snap_notify',
+        params: [
+          {
+            type: 'native',
+            message: `Hello!`,
+          },
+        ],
+      });
+    case 'hello':
+      return wallet.request({
+        method: 'snap_confirm',
+        params: [
+          {
+            prompt: `Hello!`,
+            description: 'The address has been saved to your address book',
+            textAreaContent: `test`,
+          },
+        ],
+      });
+    case 'monerium_connect':
       const response = await wallet.request({
         method: 'wallet_requestPermissions',
         params: [
@@ -34,53 +62,35 @@ export const onRpcRequest: OnRpcRequestHandler = async ({
           },
         ],
       });
-      metamaskAccount = response.find(
+      metamaskAccount = response?.find(
         (permission) => permission.parentCapability === 'eth_accounts',
       )?.caveats?.[0]?.value?.[0];
-      return await connectToMonerium();
-    case 'hello':
-      return wallet.request({
-        method: 'snap_confirm',
-        params: [
-          {
-            prompt: `Hello, ${originLocation}!`,
-            description:
-              'This custom confirmation is just for display purposes.',
-            textAreaContent:
-              'But you can edit the snap source code to make it do something, if you want to!',
-          },
-        ],
+
+      await updateState({
+        ...state,
+        metamaskAddress: metamaskAccount,
       });
+
+      return await connectToMonerium();
     default:
       throw new Error('Method not found.');
   }
 
-  // function getAccessToken() {
-  //   return access_token;
-  // }
-
   async function connectToMonerium() {
-    const response = await fetch('https://api.monerium.dev/auth/token', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: 'client_id=1b3a17ef-460f-47b0-84c6-4495e18589b3&client_secret=samplepassword&grant_type=client_credentials',
-    });
-    const res = await response.json();
-    access_token = res.access_token;
+    const auth = await authenticate();
+    access_token = auth.access_token;
     const context = await fetchContext();
     const profile = await fetchProfile(context.defaultProfile);
     const tokens = await fetchTokens();
     profile.tokens = tokens;
-    console.log;
     const isLinked = !!profile.accounts.find(
       (item) => item.address.toLowerCase() === metamaskAccount.toLowerCase(),
     );
     profile.isLinked = isLinked;
     profile.metamaskAddress = metamaskAccount;
     profile.token = access_token;
-    state = {
+
+    const updatedState = {
       ...state,
       profile: profile,
       isLinked: isLinked,
@@ -89,15 +99,21 @@ export const onRpcRequest: OnRpcRequestHandler = async ({
       token: access_token,
     };
 
-    await wallet.request({
-      method: 'snap_manageState',
-      params: ['update', state],
-    });
+    await updateState(updatedState);
 
-    return state;
+    return updatedState;
   }
 
-  async function linkToMonerium() {}
+  async function authenticate() {
+    const response = await fetch('https://api.monerium.dev/auth/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: 'client_id=1b3a17ef-460f-47b0-84c6-4495e18589b3&client_secret=samplepassword&grant_type=client_credentials',
+    });
+    return await response.json();
+  }
 
   async function fetchContext() {
     const response = await fetch('https://api.monerium.dev/auth/context', {
@@ -108,7 +124,7 @@ export const onRpcRequest: OnRpcRequestHandler = async ({
     return await response.json();
   }
 
-  async function fetchProfile(profileId) {
+  async function fetchProfile(profileId: string) {
     const response = await fetch(
       `https://api.monerium.dev/profiles/${profileId}`,
       {

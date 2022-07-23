@@ -5,14 +5,19 @@ import snapCfg from '../snap.config';
 import snapManifest from '../snap.manifest.json';
 import { JsonRpcError } from 'json-rpc-engine';
 import { ethers } from 'ethers';
+import { Web3Provider } from '@ethersproject/providers';
+import { useToasts } from 'react-toast-notifications';
 
 const Home: NextPage = () => {
+  const { addToast } = useToasts();
   const [snapId, setSnapId] = useState('');
   const [isLinked, setIsLinked] = useState('');
-  const [provider, setProvider] = useState();
+  const [provider, setProvider] = useState<Web3Provider>();
   const [signer, setSigner] = useState();
   const [signature, setSignature] = useState();
   const [snapState, setSnapState] = useState();
+  const [isFlask, setIsFlask] = useState();
+  const [isSnapOn, setIsSnapOn] = useState<boolean>();
 
   const signatureMessage = 'I hereby declare that I am the address owner.';
 
@@ -21,7 +26,7 @@ const Home: NextPage = () => {
     setSignature(await signer?.signMessage(signatureMessage));
   };
 
-  const setSnap = () => {
+  const fetchSnapId = () => {
     if (window.location.hostname === 'localhost') {
       setSnapId(
         `local:${window.location.protocol}//${window.location.hostname}:${snapCfg.cliOptions.port}`,
@@ -33,7 +38,7 @@ const Home: NextPage = () => {
 
   // run only client-side
   useEffect(() => {
-    setSnap();
+    fetchSnapId();
     setProvider(new ethers.providers.Web3Provider(window.ethereum));
   }, []);
 
@@ -42,8 +47,16 @@ const Home: NextPage = () => {
       await provider?.send('eth_requestAccounts', []);
     };
 
-    console.log('provider', provider);
+    const checkForFlask = async () => {
+      setIsFlask(
+        (
+          await provider?.provider?.request({ method: 'web3_clientVersion' })
+        )?.includes('flask') && provider,
+      );
+    };
+
     if (provider) {
+      checkForFlask();
       requestAccess().then(() => {
         console.log('p', provider);
         setSigner(provider?.getSigner());
@@ -86,6 +99,17 @@ const Home: NextPage = () => {
     }
   }, [signature]);
 
+  const hello = async () => {
+    await window.ethereum?.request({
+      method: 'wallet_invokeSnap',
+      params: [
+        snapId,
+        {
+          method: 'hello',
+        },
+      ],
+    });
+  };
   const connectToMonerium = async () => {
     try {
       const response = await window.ethereum?.request({
@@ -93,15 +117,47 @@ const Home: NextPage = () => {
         params: [
           snapId,
           {
-            method: 'connectToMonnerium',
+            method: 'monerium_connect',
           },
         ],
       });
-      console;
+      console.log('response', response);
       setSnapState(response);
       setIsLinked(
         "address '" + response?.metamaskAddress + "'" + response?.isLinked,
       );
+    } catch (err) {
+      console.error(err);
+      alert('Problem happened: ' + (err as Error).message || err);
+    }
+  };
+  const sendNotifyApp = async () => {
+    try {
+      await window.ethereum.request({
+        method: 'wallet_invokeSnap',
+        params: [
+          snapId,
+          {
+            method: 'inApp',
+          },
+        ],
+      });
+    } catch (err) {
+      console.error(err);
+      alert('Problem happened: ' + err.message || err);
+    }
+  };
+  const sendNotify = async () => {
+    try {
+      await window.ethereum.request({
+        method: 'wallet_invokeSnap',
+        params: [
+          snapId,
+          {
+            method: 'native',
+          },
+        ],
+      });
     } catch (err) {
       console.error(err);
       alert('Problem happened: ' + err.message || err);
@@ -126,14 +182,24 @@ const Home: NextPage = () => {
   };
 
   const connect = async () => {
-    await window.ethereum?.request({
-      method: 'wallet_enable',
-      params: [
-        {
-          wallet_snap: { [snapId]: {} },
-        },
-      ],
-    });
+    await window.ethereum
+      ?.request({
+        method: 'wallet_enable',
+        params: [
+          {
+            wallet_snap: { [snapId]: {} },
+          },
+        ],
+      })
+      .then((res) => {
+        if (Object.keys(res.snaps).find((s) => s === snapId)) {
+          setIsSnapOn(true);
+        }
+      })
+      .catch((error: Error) =>
+        addToast(error.message, { appearance: 'error' }),
+      );
+    // console.log('test', test);
   };
 
   const getAccessToken = async () => {
@@ -149,24 +215,22 @@ const Home: NextPage = () => {
     // .then((res) => console.log('res', res));
     console.log('res2', res);
   };
-  const sendHello = async () => {
-    try {
-      const response = await window.ethereum?.request({
-        method: 'wallet_invokeSnap',
-        params: [
-          snapId,
-          {
-            method: 'hello',
-          },
-        ],
-      });
-    } catch (err) {
-      console.error(err);
-      alert('Problem happened: ' + (err as JsonRpcError).message || err);
-    }
-  };
+
   return (
     <div className={styles.container}>
+      <div className="snap_control">
+        {isSnapOn && <p>{isSnapOn}</p>}
+        {isFlask ? (
+          <button
+            className="btn btn-outline-dark connect"
+            onClick={() => connect()}
+          >
+            Install snap
+          </button>
+        ) : (
+          <p>You need Metamask Flask for this plugin</p>
+        )}
+      </div>
       <h1>Hello, Snaps!</h1>
       <p>Wallet is linked:</p>
       <p>{isLinked}</p>
@@ -190,18 +254,12 @@ const Home: NextPage = () => {
       </details>
       <br />
 
-      <button className="connect" onClick={() => connect()}>
-        Connect
-      </button>
-      <button className="sendHello" onClick={() => sendHello()}>
-        Send Hello
-      </button>
       <button className="connectToMonerium" onClick={() => connectToMonerium()}>
         Connect
       </button>
-      <button className="linkToMonerium" onClick={() => linkToMonerium()}>
+      {/* <button className="linkToMonerium" onClick={() => linkToMonerium()}>
         Link
-      </button>
+      </button> */}
       <button className="getAccessToken" onClick={() => getAccessToken()}>
         AccessToken
       </button>
@@ -211,6 +269,11 @@ const Home: NextPage = () => {
       >
         Link address
       </button>
+      <button className="signMessageRequest" onClick={() => hello()}>
+        hello
+      </button>
+      <button onClick={() => sendNotifyApp()}>Send in-app notification</button>
+      <button onClick={() => sendNotify()}>Send native notification</button>
     </div>
   );
 };
