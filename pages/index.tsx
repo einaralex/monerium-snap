@@ -2,15 +2,16 @@ import { useEffect, useState } from 'react';
 import type { NextPage, GetServerSideProps } from 'next';
 import styles from '../styles/Home.module.css';
 import snapCfg from '../snap.config';
-import Cookies from 'cookies';
+import { getCookie, setCookie } from 'cookies-next';
 import CryptoJS from 'crypto-js';
 import snapManifest from '../snap.manifest.json';
 import router, { useRouter } from 'next/router';
 import { ethers } from 'ethers';
 import { Web3Provider } from '@ethersproject/providers';
 import { useToasts } from 'react-toast-notifications';
+import { Cookies } from 'next/dist/server/web/spec-extension/cookies';
 
-const Home: NextPage = ({ params }) => {
+const Home: NextPage = ({ params, code_verifier }) => {
   const { addToast } = useToasts();
   const router = useRouter();
   const [snapId, setSnapId] = useState('');
@@ -32,10 +33,6 @@ const Home: NextPage = ({ params }) => {
   const [iban, setIban] = useState<string>();
 
   const signatureMessage = 'I hereby declare that I am the address owner.';
-
-  // if (router.query) {
-
-  // }
 
   const signMessageRequest = async () => {
     console.log('signer', signer);
@@ -182,6 +179,30 @@ const Home: NextPage = ({ params }) => {
     console.log('orders', orders);
     setOrders(response);
   };
+  const getCustomerAccessToken = async (code) => {
+    const response = await window.ethereum?.request({
+      method: 'wallet_invokeSnap',
+      params: [
+        snapId,
+        {
+          method: 'monerium_authorization_code',
+          authorization_code: code,
+          code_verifier: getCookie('monerium-state'), //get from cookie
+        },
+      ],
+    });
+    console.log('authorization_code', response);
+    // setOrders(response);
+  };
+  if (router.query?.code) {
+    const data = getCookie('monerium-state');
+    console.log('cookie', data);
+    // console.log('cookies', cookies.get('monerium-cookie'));
+    getCustomerAccessToken(router.query?.code);
+  } else {
+    console.log('codeVerifier', code_verifier);
+    setCookie('monerium-state', code_verifier);
+  }
   const connectToMonerium = async (selectedAddress) => {
     const state = await fetchSnapState();
 
@@ -434,13 +455,10 @@ export const getServerSideProps: GetServerSideProps = async ({ req, res }) => {
     state: cookieName,
   };
 
-  cookies.set(
-    cookieName,
-    JSON.stringify({ ...params, code_verifier: codeVerifier }),
-  );
+  // cookies.set(cookieName, JSON.stringify({}));
 
   return {
-    props: { params }, // will be passed to the page component as props
+    props: { params, code_verifier: codeVerifier }, // will be passed to the page component as props
   };
 };
 

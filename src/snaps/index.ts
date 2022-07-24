@@ -23,6 +23,11 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ request }) => {
       return state;
     case 'monerium_get_balances':
       return await fetchBalances();
+    case 'monerium_authorization_code':
+      return await fetchCustomerToken(
+        request?.authorization_code,
+        request?.code_verifier,
+      );
     case 'monerium_place_order':
       return await placeOrder(request?.kind, request?.amount);
     case 'monerium_get_orders':
@@ -223,6 +228,17 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ request }) => {
       headers: {
         Authorization: 'Bearer ' + access_token,
       },
+    });
+    return await response.json();
+  }
+
+  async function fetchCustomerToken(code, codeVerifier) {
+    const response = await fetch('https://api.monerium.dev/auth/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: `grant_type=authorization_code&code=${code}&client_id=4c9ccb2f-d5cb-417c-a236-b2a1aef1949c&code_verifier=${codeVerifier}&redirect_uri=http://localhost:3000`,
     });
     return await response.json();
   }
