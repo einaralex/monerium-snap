@@ -240,6 +240,16 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ request }) => {
       },
       body: `grant_type=authorization_code&code=${code}&client_id=4c9ccb2f-d5cb-417c-a236-b2a1aef1949c&code_verifier=${codeVerifier}&redirect_uri=http://localhost:3000`,
     });
+    const access = await response.json();
+
+    const updatedState = {
+      ...state,
+      customerToken: access.access_token,
+    };
+
+    await updateState(updatedState);
+    return access;
+
     return await response.json();
   }
 
