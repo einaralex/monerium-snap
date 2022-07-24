@@ -136,7 +136,7 @@ const Home: NextPage = ({ params }) => {
             message: signatureMessage,
           }),
         },
-      );
+      ).then(async () => setIsLinked(true));
     }
   }, [signature, signer]);
 
@@ -183,8 +183,6 @@ const Home: NextPage = ({ params }) => {
     setOrders(response);
   };
   const connectToMonerium = async (selectedAddress) => {
-    const state = await fetchSnapState();
-
     try {
       const response = await window.ethereum?.request({
         method: 'wallet_invokeSnap',
@@ -216,17 +214,16 @@ const Home: NextPage = ({ params }) => {
         },
       ],
     });
-    let state = snapState;
-    if (!state) {
-      state = await fetchSnapState();
-    }
+
+    let state = await fetchSnapState();
+
     console.log('state', state);
 
     const selectedAddress =
       state?.metamaskAddress?.toLowerCase() ||
       window?.ethereum?.selectedAddress?.toLowerCase();
     state?.profile?.accounts.map((paymentAccount) => {
-      console.log('bal', bal);
+      // console.log('bal', bal);
       let bal = balances?.filter(
         (d) =>
           d.address?.toLowerCase() === selectedAddress &&
@@ -293,9 +290,7 @@ const Home: NextPage = ({ params }) => {
 
   useEffect(() => {
     if (isLinked) {
-      if (!snapState?.balances) {
-        fetchBalances();
-      }
+      fetchBalances();
       hasIban();
     }
   }, [isLinked, status]);
@@ -383,7 +378,7 @@ const Home: NextPage = ({ params }) => {
                   </button>
                 </div>
 
-                <>
+                {/* <>
                   {isMounted && (
                     <details className={styles.dropdown}>
                       <summary>Transaction history</summary>
@@ -401,7 +396,7 @@ const Home: NextPage = ({ params }) => {
                       </ul>
                     </details>
                   )}
-                </>
+                </> */}
               </>
             )}
           </div>
