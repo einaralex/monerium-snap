@@ -2,6 +2,34 @@
   padding: 0 2rem;
 }
 
+.input_amount {
+  max-width: 100px;
+
+}
+
+.send_input {
+  margin-left: 4px;
+  margin-right: 4px;
+}
+
+.input_iban {
+  max-width: 400px;
+}
+
+
+.send_wrapper {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+.top {
+  display: flex;
+  justify-content: space-between;
+}
+.currency_amount {
+  min-width: 100px;
+}
 .main {
   min-height: 100vh;
   padding: 4rem 0;
@@ -12,6 +40,53 @@
   align-items: center;
 }
 
+
+.ibanButton {
+  background-color: #FFF;
+  border: 3px solid #2c6ca7;
+  border-radius: 8px;
+  text-align: center;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: #000;
+  padding: 2px 12px;
+  height: 32px;
+}
+.ibanButton:hover {
+  cursor: pointer;
+}
+.active_snap {
+  padding: 20px;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  margin-top: 10px;
+}
+.inactive_snap {
+  padding: 20px;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  margin-top: 10px;
+  display: flex;
+  justify-content: center;
+}
+
+.dropdown {
+  padding: 20px 0;
+
+}
+.dropdown ul {
+  list-style-type: none;
+}
+
+.inactive_connect {
+  margin: auto;
+}
+
+
+.connect {
+  margin: auto;
+}
 .footer {
   display: flex;
   flex: 1;

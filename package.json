@@ -38,6 +38,7 @@
   },
   "devDependencies": {
     "@metamask/auto-changelog": "^2.5.0",
+    "@metamask/detect-provider": "^1.2.0",
     "@metamask/eslint-config": "^9.0.0",
     "@metamask/eslint-config-jest": "^9.0.0",
     "@metamask/eslint-config-nodejs": "^9.0.0",
@@ -48,6 +49,8 @@
     "@types/react": "18.0.15",
     "@types/react-dom": "18.0.6",
     "@typescript-eslint/eslint-plugin": "^5.30.7",
+    "cookies": "^0.8.0",
+    "crypto-js": "^4.1.1",
     "eslint": "8.20.0",
     "eslint-config-next": "12.2.3",
     "eslint-config-prettier": "^8.3.0",
