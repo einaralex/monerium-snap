@@ -1,24 +1,12 @@
 import { useEffect, useState } from 'react';
 import type { NextPage, GetServerSideProps } from 'next';
-// import styles from '../styles/Home.module.css';
-// import snapCfg from '../snap.config';
-import Cookies from 'cookies';
-import CryptoJS from 'crypto-js';
-// import snapManifest from '../snap.manifest.json';
 import { snapId } from '../helpers/index';
-import { useRouter } from 'next/router';
-// import { ethers } from 'ethers';
-// import { Web3Provider } from '@ethersproject/providers';
-// import { useToasts } from 'react-toast-notifications';
 import detectEthereumProvider from '@metamask/detect-provider';
-import io from 'Socket.IO-client';
-let socket;
 
 const Home: NextPage = () => {
-  const router = useRouter();
   const [provider, setProvider] = useState<unknown>();
   const [isSnapOn, setIsSnapOn] = useState<boolean>();
-  const [test, setTest] = useState();
+
   // 1. Initiate provider
   useEffect(() => {
     const getProvider = async () => {
@@ -81,45 +69,7 @@ const Home: NextPage = () => {
       ).toString()}`,
       '_ blank',
     );
-    await socketInitializer();
-    // router.push(
-    //   `https://sandbox.monerium.dev/partners/metamask/auth?${new URLSearchParams(
-    //     response,
-    //   ).toString()}`,
-    // );
   };
-
-  // useEffect(() => {
-  //   socketInitializer();
-  //   return () => {
-  //     socket.removeAllListeners();
-  //   };
-  // }, []);
-
-  async function socketInitializer() {
-    await fetch('/api/integration/monerium');
-    socket = io();
-
-    socket.on('connect', () => {
-      console.log('Socket listening to /api/monerium/integration');
-    });
-
-    socket.on('code', (code) => {
-      console.log('GOT THE CODE', code);
-      window.ethereum?.request({
-        method: 'wallet_invokeSnap',
-        params: [
-          snapId,
-          {
-            method: 'monerium_customer_auth',
-            code: code,
-          },
-        ],
-      });
-    });
-    // socket.disconnect();
-  }
-  // 5. Grab the query params from Authentication Flow
 
   return (
     <div>
