@@ -1,4 +1,5 @@
 import { OnRpcRequestHandler } from '@metamask/snap-types';
+import CryptoJS from 'crypto-js';
 
 const updateState = async (newState: any) => {
   return wallet.request({

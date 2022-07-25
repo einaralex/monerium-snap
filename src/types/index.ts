@@ -7,6 +7,15 @@ export interface AuthParameters {
   code_challenge_method: 'S256';
 }
 
+export interface AuthTokenResponse {
+  access_token: string;
+  expires_in: number;
+  profile: string;
+  refresh_token: string;
+  token_type: 'Bearer';
+  userId: string;
+}
+
 // RPC Props
 
 export interface ConnectProps {
