@@ -35,9 +35,6 @@ let access_token: string;
 
 export const onRpcRequest: OnRpcRequestHandler = async ({ request }) => {
   const currentDateTime = new Date().toISOString();
-  console.log('---');
-  console.log('---', currentDateTime);
-  console.log('---');
 
   const state: State | undefined | null = await wallet.request({
     method: 'snap_manageState',
