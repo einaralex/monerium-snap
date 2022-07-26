@@ -7,7 +7,9 @@ const Confirmed: NextPage = () => {
   const { query } = useRouter();
 
   useEffect(() => {
-    authenticateCustomer(query?.code as string);
+    if (query && query?.code) {
+      authenticateCustomer(query?.code as string);
+    }
   }, [query]);
   async function authenticateCustomer(code: string) {
     const response = await window.ethereum
@@ -16,7 +18,7 @@ const Confirmed: NextPage = () => {
         params: [
           snapId,
           {
-            method: 'monerium_customer_auth',
+            method: 'emi_customer_auth',
             code: code,
           },
         ],

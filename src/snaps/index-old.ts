@@ -22,13 +22,13 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ request }) => {
   switch (request.method) {
     case 'get_state':
       return state;
-    case 'monerium_get_balances':
+    case 'emi_get_balances':
       return await fetchBalances();
-    case 'monerium_place_order':
+    case 'emi_place_order':
       return await placeOrder(request?.kind, request?.amount);
-    case 'monerium_get_orders':
+    case 'emi_get_orders':
       return await fetchOrders();
-    case 'monerium_get_access_token':
+    case 'emi_get_access_token':
       return await state?.token;
     case 'inApp':
       return await wallet.request({
@@ -50,7 +50,7 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ request }) => {
           },
         ],
       });
-    case 'monerium_connect':
+    case 'emi_connect':
       console.log('REQ', request);
       console.log('REQ', request);
       console.log('REQ', request);

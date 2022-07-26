@@ -161,7 +161,7 @@ const Home: NextPage = ({ params }) => {
       params: [
         snapId,
         {
-          method: 'monerium_place_order',
+          method: 'emi_place_order',
           kind: 'redeem',
           amount: '1',
         },
@@ -175,7 +175,7 @@ const Home: NextPage = ({ params }) => {
       params: [
         snapId,
         {
-          method: 'monerium_get_orders',
+          method: 'emi_get_orders',
         },
       ],
     });
@@ -189,12 +189,15 @@ const Home: NextPage = ({ params }) => {
         params: [
           snapId,
           {
-            method: 'monerium_connect',
+            method: 'emi_connect',
             metamaskAddress: selectedAddress,
           },
         ],
       });
       console.log('connect response', response);
+      if (!response) {
+        return;
+      }
       setSnapState(response);
       setIsLinked(response?.isLinked);
       fetchBalances();
@@ -210,7 +213,7 @@ const Home: NextPage = ({ params }) => {
       params: [
         snapId,
         {
-          method: 'monerium_get_balances',
+          method: 'emi_get_balances',
         },
       ],
     });

@@ -7,7 +7,6 @@ import {
   CustomerAuthProps,
 } from '../types';
 import * as emi from '../endpoints';
-import { URLSearchParams as Params } from 'url';
 
 type State = {
   auth?: {
@@ -25,7 +24,7 @@ type State = {
 };
 
 const updateState = async (newState: State) => {
-  return wallet.request({
+  return await wallet.request({
     method: 'snap_manageState',
     params: ['update', newState],
   });
@@ -33,22 +32,35 @@ const updateState = async (newState: State) => {
 
 let access_token: string;
 
-export const onRpcRequest: OnRpcRequestHandler = async ({ request }) => {
+module.exports.onRpcRequest = async ({ request }) => {
   const currentDateTime = new Date().toISOString();
 
   const state: State | undefined | null = await wallet.request({
     method: 'snap_manageState',
     params: ['get'],
   });
+  console.log('state', state);
+  console.log('state', state);
+  console.log('state', state);
 
+  console.log('state', state);
   if (!state) {
     // initialize state if empty and set default data
+    console.log('- Initiate state -');
     await updateState({ auth: {} });
   }
 
-  access_token = state?.auth?.token?.access_token as string;
+  console.log('THE STATE.AUTH', state?.auth);
+  console.log('THE STATE', state);
+  if (state?.auth?.token?.access_token) {
+    access_token = state?.auth?.token?.access_token as string;
+  }
 
   const checkTokenExpiry = async () => {
+    console.log(
+      'isExipred',
+      new Date().toISOString() - state?.auth?.token?.created_at,
+    );
     const isTokenExpired =
       ((new Date().toISOString() - state?.auth?.token?.created_at) as number) >
       state?.auth?.token?.expires_in;
@@ -57,29 +69,31 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ request }) => {
       access_token = await getRefreshToken();
     }
   };
+  console.log(
+    '%c request?.method',
+    'color:white; padding: 30px; background-color: darkgreen',
+    request?.method,
+  );
 
   switch (request.method) {
-    case 'monerium_connect':
-      return moneriumConnect(request as unknown as ConnectProps);
-    case 'monerium_customer_auth': {
-      const authStatus = await moneriumCustomerAuth(
+    case 'emi_connect':
+      if (!state?.auth?.client_id) {
+        return moneriumConnect(request as unknown as ConnectProps);
+      }
+      return false;
+    case 'emi_customerAuthentication': {
+      return await moneriumCustomerAuth(
         request as unknown as CustomerAuthProps,
       );
-      if (authStatus === 'ok') {
-        return {
-          profile: await getProfile(),
-          balances: getBalances(),
-          tokens: getTokens(),
-          orders: getOrders(),
-          // TODO: also fetch on-chain tx
-        };
-      } else {
-        throw authStatus;
-      }
     }
+    case 'emi_getTokens':
+      return await getTokens();
+    case 'emi_getBalances':
+      return await getBalances(request?.profileId);
+    case 'emi_reconnect':
+      return state?.profile || null;
     default:
-      console.log('method', request?.method);
-      throw new Error('Method not found.');
+      throw new Error(request?.method + 'Method not found.');
   }
 
   async function moneriumConnect({
@@ -102,7 +116,7 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ request }) => {
   }
   async function moneriumCustomerAuth({
     code,
-  }: CustomerAuthProps): Promise<string | Error> {
+  }: CustomerAuthProps): Promise<AuthTokenResponse> {
     const tokenData: AuthTokenResponse = await emi.fetchAccessToken(
       state?.auth?.client_id as string,
       state?.auth?.redirect_uri as string,
@@ -110,7 +124,7 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ request }) => {
       code,
     );
 
-    updateState({
+    const tokenDataState = {
       ...state,
       auth: {
         ...state?.auth,
@@ -120,41 +134,51 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ request }) => {
           ...tokenData,
         },
       },
-    });
-    return 'ok';
-  }
-  async function getProfile() {
-    await checkTokenExpiry();
+    };
+    console.log('state', state);
+    console.log('tokenDataState', tokenDataState);
+    access_token = tokenData?.access_token;
+    const profile = await getProfile(tokenData?.profile);
 
+    await updateState({
+      ...state,
+      auth: {
+        ...state?.auth,
+        token: {
+          // record when token is added so we can know when it expires.
+          created_at: currentDateTime,
+          ...tokenData,
+        },
+      },
+      profile: profile,
+    });
+    return profile;
+  }
+  async function getProfile(profileId: string) {
+    await checkTokenExpiry();
     const profile = await emi
-      .fetchProfile(
-        state?.auth?.token?.profile as string,
-        access_token as string,
-      )
+      .fetchProfile(profileId as string, access_token as string)
       .catch((err) => {
         throw err;
       });
 
-    updateState({
+    await updateState({
       ...state,
       profile: profile,
     });
 
     return profile;
   }
-  async function getBalances() {
+  async function getBalances(profileId: string) {
     await checkTokenExpiry();
 
     const balances = await emi
-      .fetchBalances(
-        state?.auth?.token?.profile as string,
-        access_token as string,
-      )
+      .fetchBalances(profileId, access_token as string)
       .catch((err) => {
         throw err;
       });
 
-    updateState({
+    await updateState({
       ...state,
       balances: balances,
     });
@@ -163,9 +187,9 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ request }) => {
   }
   async function getTokens() {
     await checkTokenExpiry();
-
+    console.log('tokens', state);
     const tokens = await emi
-      .fetchTokens(access_token as string)
+      .fetchTokens(state?.auth?.token?.access_token as string)
       .catch((err) => {
         throw err;
       });
@@ -176,14 +200,11 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ request }) => {
     });
     return tokens;
   }
-  async function getOrders() {
+  async function getOrders(profileId: string) {
     await checkTokenExpiry();
 
     const orders = await emi
-      .fetchOrders(
-        state?.auth?.token?.profile as string,
-        access_token as string,
-      )
+      .fetchOrders(profileId, access_token as string)
       .catch((err) => {
         throw err;
       });
@@ -192,7 +213,6 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ request }) => {
       ...state,
       orders: orders,
     });
-
     return orders;
   }
   async function getRefreshToken() {

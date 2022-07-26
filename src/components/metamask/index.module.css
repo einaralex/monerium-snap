@@ -1,0 +1,63 @@
+
+
+.wrapper {
+  --height: 800px;
+
+  border: 1px solid black;
+  height: var(--height);
+  width: 400px;
+  display: grid;
+}
+
+.header {
+  background-color: lightgrey;
+  position: relative;
+  grid-template-rows: calc(12.5/100*var(--height));
+
+}
+
+.account_options {
+  border-bottom: 1px solid lightgrey;
+  grid-template-rows: calc(11.5/100 *var(--height));
+
+  /* display: grid;
+  grid-template: calc(11.5/100 *var(--height)) / 1fr 2fr 1fr;
+  place-self: flex-start;
+  justify-self: stretch; */
+}
+.main {
+  /* grid-template-rows: auto; */
+  grid-template-rows: calc(36/100 *var(--height));
+}
+
+.list_header {
+  grid-template-rows: calc(6.5/100 *var(--height));
+
+  border-bottom: 1px solid lightgrey;
+}
+
+.token_list {
+  grid-template-rows: calc(14.5/100 *var(--height));
+
+  border-bottom: 1px solid lightgrey;
+}
+
+.footer {
+  grid-template-rows: calc(19.5/100 *var(--height));
+
+}
+.account_connected {
+  font-size: 12px;
+}
+
+
+.account_settings {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.account_detail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}

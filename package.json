@@ -17,7 +17,7 @@
     "build": "mm-snap build -s src/snaps/index.ts -d dist -n bundle.js",
     "build:clean": "yarn clean && yarn build",
     "build:website": "next build",
-    "clean": "rimraf dist/*",
+    "clean": "rimraf .next dist/*",
     "dev": "next dev & yarn watch",
     "lint": "next lint",
     "lint:changelog": "yarn auto-changelog validate",

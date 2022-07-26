@@ -52,7 +52,7 @@ export const fetchTokens = (access_token: string) => {
     if (!res.ok) {
       throw await res.json();
     } else {
-      return res.json();
+      return await res.json();
     }
   });
 };
@@ -105,7 +105,7 @@ export const fetchAccessToken = (
     if (!res.ok) {
       throw await res.json();
     } else {
-      return res.json();
+      return await res.json();
     }
   });
 };
