@@ -1,0 +1,189 @@
+
+
+.wrapper {
+  --height: 600px;
+
+  border: 1px solid black;
+  height: var(--height);
+  width: 400px;
+  display: grid;
+
+  grid-template-columns: 1fr;
+  grid-template-rows: 12.5% 11.5% 36% 6.5% 1fr;
+  /* grid-template-rows: 12.5% 11.5% 36% 6.5% 14.5% 19.5%; */
+  grid-template-areas:
+    "header"
+    "account_options"
+    "main"
+    "list_header"
+    "list";
+    /* "footer"; */
+}
+
+.header {
+  background-color: #f2f4f6;
+  position: relative;
+
+}
+
+.account_options {
+  border-bottom: 1px solid lightgrey;
+  text-align: center;
+  display: grid;
+  padding: 16px;
+  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-rows: 1fr;
+  grid-template-areas:
+    "account_connected"
+    "account_details"
+    "account_settings"
+  /* display: grid;
+  grid-template: calc(11.5/100 *var(--height)) / 1fr 2fr 1fr;
+  place-self: flex-start;
+  justify-self: stretch; */
+}
+.main {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-around;
+}
+
+.main_token_amount {
+  font-size: 3rem;
+}
+
+.main_actions {
+
+}
+.main_actions span {
+  height: 25px;
+  width: 25px;
+  background-color: #037dd6;
+  border-radius: 50%;
+  display: inline-block;
+  margin: 0px 12px;
+
+}
+
+.list_header {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr;
+  grid-template-areas: "list_header_assets" "list_header_activity";
+
+  border-bottom: 1px solid lightgrey;
+  text-align: center;
+}
+
+.list_header_assets_active {
+  border: none !important;
+  border-bottom: 1px solid #037dd6 !important;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  border-bottom: 1px solid lightgrey;
+  align-items: center;
+  list-style-type: none;
+  padding: 0;
+  margin: 0;
+  align-items: stretch;
+  overflow: scroll;
+}
+.item_token {
+  padding: 12px 0;
+  border-bottom: 1px solid lightgrey;
+  display: grid;
+  align-items: center;
+  grid-template-columns: 20% 70% 10%;
+  grid-template-rows: 1fr;
+  grid-template-areas: "token_icon" "token_amount" "token_detail";
+}
+.item_orders {
+  padding: 8px 16px;
+}
+
+.item_orders p {
+  margin: 0;
+}
+
+.item_orders_iban {
+  color: rgba(26, 12, 12, 0.412);
+  font-size: 14px;
+}
+.token_icon {
+  display: flex;
+  justify-content: center;
+}
+.token_account_iban {
+  display: block;
+  font-size: 12px;
+  color: rgba(26, 12, 12, 0.412);
+}
+.token_icon img{
+  height: 3rem;
+}
+.token_detail {
+  display: flex;
+  justify-content: center;
+}
+.footer {
+}
+.account_connected {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  font-size: 12px;
+}
+
+
+.account_settings {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.account_details {
+  font-size: 14px;
+  display: flex;
+  justify-content: space-evenly;
+  flex-direction: column;
+  align-items: center;
+}
+
+.send_wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 16px;
+}
+.send_wrapper input {
+  margin: 8px 0;
+}
+.send_input {
+  margin-left: 4px;
+  margin-right: 4px;
+}
+.input_iban {
+  max-width: 400px;
+}
+
+.input_amount {
+  max-width: 100px;
+}
+.input_names {
+  display: flex;
+  justify-content: space-between;
+}
+
+
+.input_names input {
+  margin: 8px 0;
+}
+
+.input_name {
+  width: 48%;
+}
+

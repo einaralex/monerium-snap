@@ -1,145 +1,250 @@
 import { OnRpcRequestHandler } from '@metamask/snap-types';
+import { createAuthParameters, customURLSearchParams } from '../lib';
+import {
+  AuthParameters,
+  AuthTokenResponse,
+  ConnectProps,
+  CustomerAuthProps,
+} from '../types';
+import * as emi from '../endpoints';
 
-const updateState = async (newState: any) => {
-  return wallet.request({
+type State = {
+  auth?: {
+    code_verifier?: string;
+    client_id?: string;
+    redirect_uri?: string;
+    token?: {
+      created_at: string; // TODO: datetime
+    } & AuthTokenResponse;
+  };
+  profile?: any; // TODO
+  balances?: any; // TODO
+  tokens?: any; // TODO
+  orders?: any; // TODO
+};
+
+const updateState = async (newState: State) => {
+  return await wallet.request({
     method: 'snap_manageState',
     params: ['update', newState],
   });
 };
-export const onRpcRequest: OnRpcRequestHandler = async ({ request }) => {
-  const state = await wallet.request({
+
+let access_token: string;
+
+module.exports.onRpcRequest = async ({ request }) => {
+  const currentDateTime = new Date().toISOString();
+
+  const state: State | undefined | null = await wallet.request({
     method: 'snap_manageState',
     params: ['get'],
   });
+  console.log('state', state);
+  console.log('state', state);
+  console.log('state', state);
 
+  console.log('state', state);
   if (!state) {
     // initialize state if empty and set default data
-    await updateState({ token: '' });
+    console.log('- Initiate state -');
+    await updateState({ auth: {} });
   }
 
-  let access_token = '';
+  console.log('THE STATE.AUTH', state?.auth);
+  console.log('THE STATE', state);
+  if (state?.auth?.token?.access_token) {
+    access_token = state?.auth?.token?.access_token as string;
+  }
+
+  const checkTokenExpiry = async () => {
+    console.log(
+      'isExipred',
+      new Date().toISOString() - state?.auth?.token?.created_at,
+    );
+    const isTokenExpired =
+      ((new Date().toISOString() - state?.auth?.token?.created_at) as number) >
+      state?.auth?.token?.expires_in;
+
+    if (isTokenExpired) {
+      access_token = await getRefreshToken();
+    }
+  };
+  console.log(
+    '%c request?.method',
+    'color:white; padding: 30px; background-color: darkgreen',
+    request?.method,
+  );
+
   switch (request.method) {
-    case 'get_state':
-      return state;
-    case 'monerium_get_balances':
-      return await fetchBalances();
-    case 'monerium_place_order':
-      return await placeOrder(request?.kind, request?.amount);
-    case 'monerium_get_orders':
-      return await fetchOrders();
-    case 'monerium_get_access_token':
-      return await state?.token;
-    case 'inApp':
-      return await wallet.request({
-        method: 'snap_notify',
-        params: [
-          {
-            type: 'inApp',
-            message: `Hello!`,
-          },
-        ],
-      });
-    case 'native':
-      return await wallet.request({
-        method: 'snap_notify',
-        params: [
-          {
-            type: 'native',
-            message: `Hello!`,
-          },
-        ],
-      });
-    case 'monerium_connect':
-      console.log('REQ', request);
-      console.log('REQ', request);
-      console.log('REQ', request);
-      return await connectToMonerium(request?.metamaskAddress);
+    case 'emi_connect':
+      return moneriumConnect(request as unknown as ConnectProps);
+
+    case 'emi_customerAuthentication': {
+      return await moneriumCustomerAuth(
+        request as unknown as CustomerAuthProps,
+      );
+    }
+    case 'emi_getTokens':
+      return await getTokens();
+    case 'emi_getBalances':
+      return await getBalances();
+    case 'emi_reconnect':
+      return state?.profile || null;
+    case 'emi_placeOrder':
+      return await placeOrder(request);
+    case 'emi_getOrders':
+      return await getOrders();
     default:
-      throw new Error('Method not found.');
+      throw new Error(request?.method + 'Method not found.');
   }
 
-  async function connectToMonerium(metamaskAddress: string) {
-    const mmAddress = metamaskAddress || state?.metamaskAddress;
-    const auth = await authenticate();
-    access_token = auth.access_token;
-    const context = await fetchContext();
-    const profile = await fetchProfile(context.defaultProfile);
-    const tokens = await fetchTokens();
-    const socket = new WebSocket(
-      `wss://api.monerium.dev/orders?access_token=${access_token}&state=processed`,
+  async function moneriumConnect({
+    clientId,
+    redirectUri,
+  }: ConnectProps): Promise<AuthParameters> {
+    const { params, codeVerifier } = createAuthParameters(
+      clientId,
+      redirectUri,
     );
-    socket.addEventListener('message', function (event) {
-      console.log('Message from server ', event.data);
-      // console.log('ORDER', order);
-      wallet.request({
-        method: 'snap_notify',
-        params: [
-          {
-            type: 'inApp',
-            message: `orderrrrr`,
-          },
-        ],
-      });
+    // codeVerifier is secret, don't share un-encrypted.
+    await updateState({
+      auth: {
+        client_id: clientId,
+        redirect_uri: redirectUri,
+        code_verifier: codeVerifier,
+      },
     });
-
-    profile.tokens = tokens;
-    const isLinked = !!profile.accounts.find(
-      (item) => item.address?.toLowerCase() === mmAddress?.toLowerCase(),
+    return params;
+  }
+  async function moneriumCustomerAuth({
+    code,
+  }: CustomerAuthProps): Promise<AuthTokenResponse> {
+    const tokenData: AuthTokenResponse = await emi.fetchAccessToken(
+      state?.auth?.client_id as string,
+      state?.auth?.redirect_uri as string,
+      state?.auth?.code_verifier as string,
+      code,
     );
-    profile.isLinked = isLinked;
-    profile.token = access_token;
 
-    const updatedState = {
+    const tokenDataState = {
+      ...state,
+      auth: {
+        ...state?.auth,
+        token: {
+          // record when token is added so we can know when it expires.
+          created_at: currentDateTime,
+          ...tokenData,
+        },
+      },
+    };
+    console.log('state', state);
+    console.log('tokenDataState', tokenDataState);
+    access_token = tokenData?.access_token;
+    const profile = await getProfile(tokenData?.profile);
+
+    await updateState({
+      ...state,
+      auth: {
+        ...state?.auth,
+        token: {
+          // record when token is added so we can know when it expires.
+          created_at: currentDateTime,
+          ...tokenData,
+        },
+      },
+      profile: profile,
+    });
+    return profile;
+  }
+  async function getProfile(profileId: string) {
+    await checkTokenExpiry();
+    const profile = await emi
+      .fetchProfile(profileId as string, access_token as string)
+      .catch((err) => {
+        throw err;
+      });
+
+    await updateState({
       ...state,
       profile: profile,
-      isLinked: isLinked,
+    });
+
+    return profile;
+  }
+  async function getBalances() {
+    await checkTokenExpiry();
+
+    const balances = await emi
+      .fetchBalances(state?.profile?.id, access_token as string)
+      .catch((err) => {
+        throw err;
+      });
+
+    await updateState({
+      ...state,
+      balances: balances,
+    });
+
+    return balances;
+  }
+  async function getTokens() {
+    await checkTokenExpiry();
+    console.log('tokens', state);
+    const tokens = await emi
+      .fetchTokens(state?.auth?.token?.access_token as string)
+      .catch((err) => {
+        throw err;
+      });
+
+    updateState({
+      ...state,
       tokens: tokens,
-      token: access_token,
-      metamaskAddress: mmAddress,
-    };
+    });
+    return tokens;
+  }
+  async function getOrders() {
+    await checkTokenExpiry();
 
-    console.log('updatedState', updatedState);
+    const orders = await emi
+      .fetchOrders(state?.profile?.id, access_token as string)
+      .catch((err) => {
+        throw err;
+      });
 
-    await updateState(updatedState);
-
-    return updatedState;
+    updateState({
+      ...state,
+      orders: orders,
+    });
+    return orders;
   }
 
-  async function placeOrder(kind: 'issue' | 'redeem', amount: string) {
-    const response = await fetch(
-      `https://api.monerium.dev/profiles/${state?.profile?.id}/orders`,
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${state?.token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          kind: kind,
-          amount: amount,
-          currency: 'EUR',
-          counterpart: {
-            identifier: {
-              standard: 'iban',
-              iban: 'GL6781554677225133',
-            },
-            details: {
-              companyName: 'Company name',
-              firstName: 'First name',
-              lastName: 'Last name',
-            },
-          },
-          memo: 'First order for Monerium',
-          address: '0x798728D5410aB4FB49d2C277A49baC5048aB43ca',
-          signature:
-            'd4e984e8b7ba1c6c7f8ddc47ff6feebf9458061d7c169afacff590fa587c4ab909d661a32610ec8aeca5c79735378d9f4ea2bfe31df35456850f1c971b6e8f6a01',
-          message:
-            'Send EUR 1 to GL6781554677225133 at 2022-07-12T12:02:49.101452Z',
-        }),
-      },
+  async function placeOrder({
+    kind,
+    amount,
+    firstName,
+    lastName,
+    iban,
+    signature,
+    address,
+    accountId,
+    message,
+  }: {
+    kind: 'issue' | 'redeem';
+    amount: string;
+  }) {
+    const order = await emi.placeOrder(
+      state?.profile?.id,
+      kind,
+      amount,
+      firstName,
+      lastName,
+      iban,
+      signature,
+      address,
+      accountId,
+      message,
+      access_token,
     );
-
-    const order = await response.json();
 
     await wallet.request({
       method: 'snap_notify',
@@ -152,98 +257,38 @@ export const onRpcRequest: OnRpcRequestHandler = async ({ request }) => {
         },
       ],
     });
-    await wallet.request({
-      method: 'snap_confirm',
-      params: [
-        {
-          prompt: `Hello, ${state?.profile?.name}!`,
-          description: 'Your order is being processed',
-          textAreaContent:
-            order.kind === 'redeem' &&
-            `${order.amount} EUR sent to ${order.counterpart.details.name} (IBAN: ${order.counterpart.identifier.iban})`,
-        },
-      ],
-    });
+    // await wallet.request({
+    //   method: 'snap_confirm',
+    //   params: [
+    //     {
+    //       prompt: `Hello, ${state?.profile?.name}!`,
+    //       description: 'Your order is being processed',
+    //       textAreaContent:
+    //         order.kind === 'redeem' &&
+    //         `${order.amount} EUR sent to ${order.counterpart.details.name} (IBAN: ${order.counterpart.identifier.iban})`,
+    //     },
+    //   ],
+    // });
     return order;
   }
+  async function getRefreshToken() {
+    const token = await emi
+      .fetchRefreshToken(
+        state?.auth?.client_id as string,
+        state?.auth?.token?.refresh_token as string,
+      )
+      .catch((err) => {
+        throw err;
+      });
 
-  async function authenticate() {
-    const response = await fetch('https://api.monerium.dev/auth/token', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: 'client_id=69c15867-b06f-4813-bfa0-53da660cf7c1&client_secret=7b8c1a0a-0c91-45ea-9436-2af4b3453216&grant_type=client_credentials',
-    });
-    return await response.json();
-  }
-
-  async function fetchContext() {
-    const response = await fetch('https://api.monerium.dev/auth/context', {
-      headers: {
-        Authorization: 'Bearer ' + access_token,
-      },
-    });
-    return await response.json();
-  }
-
-  async function fetchProfile(profileId: string) {
-    const response = await fetch(
-      `https://api.monerium.dev/profiles/${profileId}`,
-      {
-        headers: {
-          Authorization: 'Bearer ' + access_token,
-        },
-      },
-    );
-    return await response.json();
-  }
-  async function fetchBalances() {
-    const response = await fetch(
-      `https://api.monerium.dev/profiles/${state?.profile?.id}/balances`,
-      {
-        headers: {
-          Authorization: 'Bearer ' + state?.token,
-        },
-      },
-    );
-    const balances = await response.json();
-
-    const updatedState = {
+    updateState({
       ...state,
-      balances: balances,
-    };
-
-    await updateState(updatedState);
-    return balances;
-  }
-
-  async function fetchTokens() {
-    const response = await fetch('https://api.monerium.dev/tokens', {
-      headers: {
-        Authorization: 'Bearer ' + access_token,
+      auth: {
+        ...state?.auth,
+        token: token,
       },
     });
-    return await response.json();
-  }
 
-  async function fetchOrders() {
-    const response = await fetch(
-      `https://api.monerium.dev/profiles/${state?.profile?.id}/orders`,
-      {
-        headers: {
-          Authorization: 'Bearer ' + state?.token,
-        },
-      },
-    );
-    const orders = await response.json();
-
-    const updatedState = {
-      ...state,
-      orders: orders,
-    };
-
-    await updateState(updatedState);
-    return orders;
+    return token.access_token;
   }
 };

@@ -2,26 +2,6 @@
   padding: 0 2rem;
 }
 
-.input_amount {
-  max-width: 100px;
-
-}
-
-.send_input {
-  margin-left: 4px;
-  margin-right: 4px;
-}
-
-.input_iban {
-  max-width: 400px;
-}
-
-
-.send_wrapper {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-}
 
 .top {
   display: flex;
