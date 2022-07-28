@@ -1,19 +1,25 @@
 import detectEthereumProvider from '@metamask/detect-provider';
-import router from 'next/router';
-import Router, { useRouter } from 'next/router';
-import React, { useState, createContext, useEffect } from 'react';
+import { useRouter } from 'next/router';
+import React, { useState, createContext, useEffect, useMemo } from 'react';
 import { snapId } from '../../helpers';
 
-export const SnapContext = createContext({ isSnapOn: false });
+export const SnapContext = createContext({
+  isSnapOn: false,
+  selectedAddress: '',
+  chainId: '',
+});
 
 function SnapProvider({ children }) {
-  const [provider, setProvider] = useState<unknown>();
+  const [provider, setProvider] = useState<object>();
   const [isSnapOn, setIsSnapOn] = useState<boolean>();
+  const [selectedAddress, setSelectedAddress] = useState<string>();
 
   // 1. Initiate provider
   useEffect(() => {
     const getProvider = async () => {
-      setProvider(await detectEthereumProvider());
+      if (!provider) {
+        setProvider(await detectEthereumProvider());
+      }
     };
     if (!provider) {
       getProvider();
@@ -23,9 +29,20 @@ function SnapProvider({ children }) {
   // 2. Enable snap.
   useEffect(() => {
     if (provider) {
-      console.log('WILL ENABLE');
       enable();
     }
+    provider
+      ?.request({ method: 'eth_requestAccounts' })
+      .then((e) => setSelectedAddress(e[0]))
+      .catch((err) => {
+        if (err.code === 4001) {
+          // EIP-1193 userRejectedRequest error
+          // If this happens, the user rejected the connection request.
+          console.log('Please connect to MetaMask.');
+        } else {
+          console.error(err);
+        }
+      });
   }, [provider]);
 
   // 3. Enabling snap
@@ -74,15 +91,19 @@ function SnapProvider({ children }) {
   //   }
   //   return profile;
   // }
-
+  const value = useMemo(
+    () => ({
+      chainId: provider?.chainId,
+      selectedAddress,
+      provider: provider,
+      isSnapOn,
+    }),
+    [provider?.chainId, selectedAddress, isSnapOn],
+  );
   // NOTE: you *might* need to memoize this value
   // Learn more in http://kcd.im/optimize-context
   // const value = { state, dispatch };
-  return (
-    <SnapContext.Provider value={{ isSnapOn, provider }}>
-      {children}
-    </SnapContext.Provider>
-  );
+  return <SnapContext.Provider value={value}>{children}</SnapContext.Provider>;
 }
 
 export { SnapProvider };

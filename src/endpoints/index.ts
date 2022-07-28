@@ -135,3 +135,53 @@ export const fetchRefreshToken = (clientId: string, refreshToken: string) => {
     }
   });
 };
+
+export const placeOrder = async (
+  profileId: string,
+  kind: 'issue' | 'redeem',
+  amount: string,
+  firstName: string,
+  lastName: string,
+  iban: string,
+  signature: string,
+  address: string,
+  accountId: string,
+  message: string,
+  access_token: string,
+) => {
+  return fetch(`https://api.monerium.dev/profiles/${profileId}/orders`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${access_token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      kind: kind,
+      amount: amount,
+      currency: 'EUR',
+      counterpart: {
+        identifier: {
+          standard: 'iban',
+          iban: iban,
+        },
+        details: {
+          country: 'IS',
+          companyName: '',
+          firstName: firstName,
+          lastName: lastName,
+        },
+      },
+      memo: 'First order for Monerium',
+      accountId: accountId,
+      address: address,
+      signature: signature,
+      message: message,
+    }),
+  }).then(async (res) => {
+    if (!res.ok) {
+      throw await res.json();
+    } else {
+      return res.json();
+    }
+  });
+};

@@ -1,7 +1,5 @@
-import detectEthereumProvider from '@metamask/detect-provider';
-import router from 'next/router';
-import Router, { useRouter } from 'next/router';
-import React, { useState, createContext, useEffect } from 'react';
+import { useRouter } from 'next/router';
+import React, { useState, createContext, useEffect, useMemo } from 'react';
 import { snapId } from '../../helpers';
 import { useSnap } from '../hooks/useSnap';
 
@@ -11,7 +9,7 @@ function AuthenticationProvider({ children }) {
   const [profile, setProfile] = useState({ id: undefined });
   const router = useRouter();
   const { query } = router;
-  const { isSnapOn, provider } = useSnap();
+  const { isSnapOn } = useSnap();
 
   useEffect(() => {
     if (query && query.code !== 'undefined' && !profile.id) {
@@ -20,9 +18,15 @@ function AuthenticationProvider({ children }) {
   }, [query]);
 
   useEffect(() => {
-    console.log('isSnapOn', isSnapOn, provider);
-    if (isSnapOn) reconnect();
-  }, [isSnapOn]);
+    if (isSnapOn && !profile?.id) {
+      console.log(
+        '%creconnecting',
+        'color:white; padding: 30px; background-color: red',
+      );
+
+      reconnect();
+    }
+  }, [isSnapOn, profile]);
 
   async function authenticateCustomer(code: string) {
     if (code) {
@@ -36,8 +40,7 @@ function AuthenticationProvider({ children }) {
           },
         ],
       });
-      console.log('profile', profile);
-      console.log('profile', profile);
+      console.log('authenticateCustomer response', profile);
       setProfile(profile);
 
       // clear the query params
@@ -56,7 +59,7 @@ function AuthenticationProvider({ children }) {
         },
       ],
     });
-    console.log('profile', profile);
+    console.log('reconnect profile', profile);
     if (profile) {
       setProfile(profile);
     } else {
@@ -65,11 +68,17 @@ function AuthenticationProvider({ children }) {
     return profile;
   }
 
+  const value = useMemo(
+    () => ({
+      profile,
+    }),
+    [profile],
+  );
   // NOTE: you *might* need to memoize this value
   // Learn more in http://kcd.im/optimize-context
   // const value = { state, dispatch };
   return (
-    <AuthenticationContext.Provider value={profile}>
+    <AuthenticationContext.Provider value={value}>
       {children}
     </AuthenticationContext.Provider>
   );

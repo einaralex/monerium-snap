@@ -77,10 +77,8 @@ module.exports.onRpcRequest = async ({ request }) => {
 
   switch (request.method) {
     case 'emi_connect':
-      if (!state?.auth?.client_id) {
-        return moneriumConnect(request as unknown as ConnectProps);
-      }
-      return false;
+      return moneriumConnect(request as unknown as ConnectProps);
+
     case 'emi_customerAuthentication': {
       return await moneriumCustomerAuth(
         request as unknown as CustomerAuthProps,
@@ -89,9 +87,13 @@ module.exports.onRpcRequest = async ({ request }) => {
     case 'emi_getTokens':
       return await getTokens();
     case 'emi_getBalances':
-      return await getBalances(request?.profileId);
+      return await getBalances();
     case 'emi_reconnect':
       return state?.profile || null;
+    case 'emi_placeOrder':
+      return await placeOrder(request);
+    case 'emi_getOrders':
+      return await getOrders();
     default:
       throw new Error(request?.method + 'Method not found.');
   }
@@ -169,11 +171,11 @@ module.exports.onRpcRequest = async ({ request }) => {
 
     return profile;
   }
-  async function getBalances(profileId: string) {
+  async function getBalances() {
     await checkTokenExpiry();
 
     const balances = await emi
-      .fetchBalances(profileId, access_token as string)
+      .fetchBalances(state?.profile?.id, access_token as string)
       .catch((err) => {
         throw err;
       });
@@ -200,11 +202,11 @@ module.exports.onRpcRequest = async ({ request }) => {
     });
     return tokens;
   }
-  async function getOrders(profileId: string) {
+  async function getOrders() {
     await checkTokenExpiry();
 
     const orders = await emi
-      .fetchOrders(profileId, access_token as string)
+      .fetchOrders(state?.profile?.id, access_token as string)
       .catch((err) => {
         throw err;
       });
@@ -214,6 +216,60 @@ module.exports.onRpcRequest = async ({ request }) => {
       orders: orders,
     });
     return orders;
+  }
+
+  async function placeOrder({
+    kind,
+    amount,
+    firstName,
+    lastName,
+    iban,
+    signature,
+    address,
+    accountId,
+    message,
+  }: {
+    kind: 'issue' | 'redeem';
+    amount: string;
+  }) {
+    const order = await emi.placeOrder(
+      state?.profile?.id,
+      kind,
+      amount,
+      firstName,
+      lastName,
+      iban,
+      signature,
+      address,
+      accountId,
+      message,
+      access_token,
+    );
+
+    await wallet.request({
+      method: 'snap_notify',
+      params: [
+        {
+          type: 'inApp',
+          message:
+            order.kind === 'redeem' &&
+            `${order.amount} EUR sent to ${order.counterpart.identifier.iban}`,
+        },
+      ],
+    });
+    // await wallet.request({
+    //   method: 'snap_confirm',
+    //   params: [
+    //     {
+    //       prompt: `Hello, ${state?.profile?.name}!`,
+    //       description: 'Your order is being processed',
+    //       textAreaContent:
+    //         order.kind === 'redeem' &&
+    //         `${order.amount} EUR sent to ${order.counterpart.details.name} (IBAN: ${order.counterpart.identifier.iban})`,
+    //     },
+    //   ],
+    // });
+    return order;
   }
   async function getRefreshToken() {
     const token = await emi
