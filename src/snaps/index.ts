@@ -39,11 +39,6 @@ module.exports.onRpcRequest = async ({ request }) => {
     method: 'snap_manageState',
     params: ['get'],
   });
-  console.log('state', state);
-  console.log('state', state);
-  console.log('state', state);
-
-  console.log('state', state);
   if (!state) {
     // initialize state if empty and set default data
     console.log('- Initiate state -');
@@ -57,15 +52,27 @@ module.exports.onRpcRequest = async ({ request }) => {
   }
 
   const checkTokenExpiry = async () => {
+    if (isNaN(new Date(state?.auth?.token?.created_at))) {
+      return;
+    }
+    // not quite working as I thought,
     console.log(
-      'isExipred',
-      new Date().toISOString() - state?.auth?.token?.created_at,
+      'isNaN(new Date(state?.auth?.token?.created_at)',
+      isNaN(new Date(state?.auth?.token?.created_at)),
+    );
+    console.log(
+      'data',
+      new Date().getTime() - new Date(state?.auth?.token?.created_at).getTime(),
+    );
+    console.log(
+      'state?.auth?.token?.expires_in',
+      state?.auth?.token?.expires_in,
     );
     const isTokenExpired =
-      ((new Date().toISOString() - state?.auth?.token?.created_at) as number) >
-      state?.auth?.token?.expires_in;
-
+      state?.auth?.token?.expires_in <
+      new Date().getTime() - new Date(state?.auth?.token?.created_at).getTime();
     if (isTokenExpired) {
+      console.log('TOKEN IS EXIRED');
       access_token = await getRefreshToken();
     }
   };
@@ -76,6 +83,8 @@ module.exports.onRpcRequest = async ({ request }) => {
   );
 
   switch (request.method) {
+    case 'get_state':
+      return state;
     case 'emi_connect':
       return moneriumConnect(request as unknown as ConnectProps);
 
@@ -126,19 +135,6 @@ module.exports.onRpcRequest = async ({ request }) => {
       code,
     );
 
-    const tokenDataState = {
-      ...state,
-      auth: {
-        ...state?.auth,
-        token: {
-          // record when token is added so we can know when it expires.
-          created_at: currentDateTime,
-          ...tokenData,
-        },
-      },
-    };
-    console.log('state', state);
-    console.log('tokenDataState', tokenDataState);
     access_token = tokenData?.access_token;
     const profile = await getProfile(tokenData?.profile);
 
@@ -191,12 +187,13 @@ module.exports.onRpcRequest = async ({ request }) => {
     await checkTokenExpiry();
     console.log('tokens', state);
     const tokens = await emi
-      .fetchTokens(state?.auth?.token?.access_token as string)
+      .fetchTokens(access_token as string)
       .catch((err) => {
+        console.error(err);
         throw err;
       });
 
-    updateState({
+    await updateState({
       ...state,
       tokens: tokens,
     });
@@ -211,7 +208,7 @@ module.exports.onRpcRequest = async ({ request }) => {
         throw err;
       });
 
-    updateState({
+    await updateState({
       ...state,
       orders: orders,
     });

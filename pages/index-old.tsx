@@ -64,8 +64,9 @@ const Home: NextPage = ({ params }) => {
   };
 
   useEffect(() => {
-    checkIfSnapIsInstalled();
+    if (!isSnapInstalled) checkIfSnapIsInstalled();
   });
+
   // run only client-side
   useEffect(() => {
     setIsMounted(true);
