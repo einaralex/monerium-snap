@@ -1,10 +1,16 @@
 import { OnRpcRequestHandler } from '@metamask/snap-types';
 import { createAuthParameters, customURLSearchParams } from '../lib';
 import {
+  Address,
   AuthParameters,
   AuthTokenResponse,
+  Balances,
   ConnectProps,
   CustomerAuthProps,
+  IBAN,
+  Profile,
+  Signature,
+  Token,
 } from '../types';
 import * as emi from '../endpoints';
 
@@ -17,9 +23,9 @@ type State = {
       created_at: string; // TODO: datetime
     } & AuthTokenResponse;
   };
-  profile?: any; // TODO
-  balances?: any; // TODO
-  tokens?: any; // TODO
+  profile?: Profile;
+  balances?: Balances[];
+  tokens?: Token[];
   orders?: any; // TODO
 };
 
@@ -39,46 +45,37 @@ module.exports.onRpcRequest = async ({ request }) => {
     method: 'snap_manageState',
     params: ['get'],
   });
+
   if (!state) {
     // initialize state if empty and set default data
     console.log('- Initiate state -');
     await updateState({ auth: {} });
   }
 
-  console.log('THE STATE.AUTH', state?.auth);
   console.log('THE STATE', state);
+
   if (state?.auth?.token?.access_token) {
     access_token = state?.auth?.token?.access_token as string;
   }
 
   const checkTokenExpiry = async () => {
-    if (isNaN(new Date(state?.auth?.token?.created_at))) {
-      return;
-    }
-    // not quite working as I thought,
-    console.log(
-      'isNaN(new Date(state?.auth?.token?.created_at)',
-      isNaN(new Date(state?.auth?.token?.created_at)),
-    );
-    console.log(
-      'data',
-      new Date().getTime() - new Date(state?.auth?.token?.created_at).getTime(),
-    );
-    console.log(
-      'state?.auth?.token?.expires_in',
-      state?.auth?.token?.expires_in,
-    );
-    const isTokenExpired =
-      state?.auth?.token?.expires_in <
-      new Date().getTime() - new Date(state?.auth?.token?.created_at).getTime();
-    if (isTokenExpired) {
-      console.log('TOKEN IS EXIRED');
-      access_token = await getRefreshToken();
+    if (state?.auth?.token?.created_at) {
+      const rangeInMs =
+        new Date().getTime() -
+        new Date(state?.auth?.token.created_at).getTime();
+      const expiresInMs = state?.auth?.token?.expires_in * 1000;
+      const isTokenExpired = expiresInMs < rangeInMs;
+      console.log('token expires in:', expiresInMs - rangeInMs);
+      if (isTokenExpired) {
+        console.log('TOKEN IS EXPIRED');
+        access_token = await getRefreshToken();
+      }
     }
   };
+
   console.log(
-    '%c request?.method',
-    'color:white; padding: 30px; background-color: darkgreen',
+    '%c method',
+    'color:white; padding: 10px 30px; background-color: darkgreen',
     request?.method,
   );
 
@@ -87,7 +84,6 @@ module.exports.onRpcRequest = async ({ request }) => {
       return state;
     case 'emi_connect':
       return moneriumConnect(request as unknown as ConnectProps);
-
     case 'emi_customerAuthentication': {
       return await moneriumCustomerAuth(
         request as unknown as CustomerAuthProps,
@@ -169,29 +165,36 @@ module.exports.onRpcRequest = async ({ request }) => {
   }
   async function getBalances() {
     await checkTokenExpiry();
+    console.log('Getting balances, balances previous state:', state?.balances);
+    if (!state?.profile?.id) {
+      return { code: 404, status: 'Not Found', message: 'ProfileId Missing.' };
+    }
+    let balances;
 
-    const balances = await emi
-      .fetchBalances(state?.profile?.id, access_token as string)
-      .catch((err) => {
-        throw err;
-      });
+    try {
+      balances = await emi.fetchBalances(
+        state?.profile?.id,
+        access_token as string,
+      );
+    } catch (err) {
+      return err;
+    }
 
     await updateState({
       ...state,
       balances: balances,
     });
-
     return balances;
   }
   async function getTokens() {
     await checkTokenExpiry();
-    console.log('tokens', state);
-    const tokens = await emi
-      .fetchTokens(access_token as string)
-      .catch((err) => {
-        console.error(err);
-        throw err;
-      });
+
+    let tokens;
+    try {
+      tokens = await emi.fetchTokens(access_token as string);
+    } catch (err) {
+      return err;
+    }
 
     await updateState({
       ...state,
@@ -202,12 +205,18 @@ module.exports.onRpcRequest = async ({ request }) => {
   async function getOrders() {
     await checkTokenExpiry();
 
-    const orders = await emi
-      .fetchOrders(state?.profile?.id, access_token as string)
-      .catch((err) => {
-        throw err;
-      });
-
+    if (!state?.profile?.id) {
+      return { code: 404, status: 'Not Found', message: 'ProfileId Missing.' };
+    }
+    let orders;
+    try {
+      orders = await emi.fetchOrders(
+        state?.profile?.id,
+        access_token as string,
+      );
+    } catch (err) {
+      return err;
+    }
     await updateState({
       ...state,
       orders: orders,
@@ -228,6 +237,13 @@ module.exports.onRpcRequest = async ({ request }) => {
   }: {
     kind: 'issue' | 'redeem';
     amount: string;
+    firstName: string;
+    lastName: string;
+    iban: IBAN;
+    signature: Signature;
+    address: Address;
+    accountId: string;
+    message: string;
   }) {
     const order = await emi.placeOrder(
       state?.profile?.id,
@@ -269,23 +285,23 @@ module.exports.onRpcRequest = async ({ request }) => {
     return order;
   }
   async function getRefreshToken() {
-    const token = await emi
-      .fetchRefreshToken(
+    let token;
+    try {
+      token = await emi.fetchRefreshToken(
         state?.auth?.client_id as string,
         state?.auth?.token?.refresh_token as string,
-      )
-      .catch((err) => {
-        throw err;
-      });
-
-    updateState({
+      );
+    } catch (err) {
+      console.error('Could not get refresh token', err);
+      return err;
+    }
+    await updateState({
       ...state,
       auth: {
         ...state?.auth,
         token: token,
       },
     });
-
     return token.access_token;
   }
 };

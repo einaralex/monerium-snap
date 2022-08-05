@@ -2,7 +2,6 @@ import { useContext } from 'react';
 import { SnapContext } from '../providers/SnapProvider';
 
 export const useSnap = () => {
-  // const [stat]
   const context = useContext(SnapContext);
   if (context === undefined) {
     throw new Error('useSnap must be used within a SnapContext');

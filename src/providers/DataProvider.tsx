@@ -20,6 +20,7 @@ export const DataContext = createContext({
   getTokens: () => {},
   getBalances: () => {},
   getOrders: () => {},
+  getState: () => {},
 });
 
 function DataProvider({ children }) {
@@ -59,7 +60,7 @@ function DataProvider({ children }) {
         if (o) setOrders(o);
         else if (!o) getOrders();
         if (t) setTokens(t);
-        else if (5) getTokens();
+        else if (!t) getTokens();
       };
       refetch();
     }
@@ -152,17 +153,19 @@ function DataProvider({ children }) {
       ],
     });
     console.log('placed order', response);
+    return response;
   };
 
   const value = useMemo(
     () => ({
       createRedirectUrl: (options) => createRedirectUrl(options),
-      getOrders: () => getOrders(),
-      getTokens: () => getTokens(),
-      getBalances: () => getBalances(),
-      placeOrder: (orderDetail) => placeOrder(orderDetail),
+      getOrders: async () => await getOrders(),
+      getTokens: async () => await getTokens(),
+      getBalances: async () => await getBalances(),
+      getState: async () => await getSnapState(),
+      placeOrder: async (orderDetail) => await placeOrder(orderDetail),
       tokens,
-      balances,
+      balances, // getSnapState().balances, dont really need to set state
       orders,
       profile: profile,
     }),
