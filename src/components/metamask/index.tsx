@@ -1,12 +1,12 @@
 import { providers } from 'ethers';
 import React, { useEffect, useState } from 'react';
-import { useProfile } from '../../hooks/useProfile';
 import { useSnap } from '../../hooks/useSnap';
 import { ethers } from 'ethers';
 import styles from './index.module.css';
-const MetaMask = ({ tokens, balances, orders, placeOrder }) => {
+import { useEMI } from '../../hooks/useEMI';
+const MetaMask = () => {
   const { selectedAddress, chainId } = useSnap();
-  const { profile } = useProfile();
+  const { profile, tokens, balances, orders, placeOrder } = useEMI();
   const [provider, setProvider] = useState();
 
   const [listToggle, setListToggle] = useState<'assets' | 'activity'>('assets');
@@ -18,19 +18,13 @@ const MetaMask = ({ tokens, balances, orders, placeOrder }) => {
 
   useEffect(() => {
     if (balances) {
-      balances?.find((b) => {
-        return (
-          b.address.toLowerCase() === selectedAddress?.toLowerCase() &&
-          b.chain === currentChain
-        );
-      }),
-        setAccountData(
-          balances?.find(
-            (b) =>
-              b.address.toLowerCase() === selectedAddress?.toLowerCase() &&
-              b.chain === currentChain,
-          ),
-        );
+      setAccountData(
+        balances?.find(
+          (b) =>
+            b.address.toLowerCase() === selectedAddress?.toLowerCase() &&
+            b.chain === currentChain,
+        ),
+      );
     }
   }, [selectedAddress, currentChain, balances]);
   useEffect(() => {

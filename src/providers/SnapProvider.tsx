@@ -11,6 +11,7 @@ export const SnapContext = createContext({
 
 function SnapProvider({ children }) {
   const [provider, setProvider] = useState<object>();
+  const [isSnapInstalled, setIsSnapInstalled] = useState<boolean>();
   const [isSnapOn, setIsSnapOn] = useState<boolean>();
   const [selectedAddress, setSelectedAddress] = useState<string>();
 
@@ -26,14 +27,23 @@ function SnapProvider({ children }) {
     }
   }, []);
 
+  useEffect(() => {
+    checkIfSnapIsInstalled();
+  });
   // 2. Enable snap.
   useEffect(() => {
     if (provider) {
       enable();
     }
+
+    // get the selectedAddress,
+    // when the customer gets redirected from auth flow, the provider looses the selectedAddress.
+    // but the signer is still there, so this doesn't trigger any metamask call-for-action (I guess)
     provider
       ?.request({ method: 'eth_requestAccounts' })
-      .then((e) => setSelectedAddress(e[0]))
+      .then((e) => {
+        setSelectedAddress(e[0]);
+      })
       .catch((err) => {
         if (err.code === 4001) {
           // EIP-1193 userRejectedRequest error
@@ -72,6 +82,30 @@ function SnapProvider({ children }) {
     console.log('enable: ', response);
   };
 
+  const checkIfSnapIsInstalled = async () => {
+    const res = await window.ethereum.request({
+      method: 'wallet_getSnaps',
+    });
+    if (res[snapId]?.id !== undefined && res[snapId]?.version !== undefined) {
+      setIsSnapInstalled(true);
+      console.log(`Snap: 'on'`);
+    } else {
+      setIsSnapInstalled(false);
+    }
+  };
+
+  const getSnapState = async () => {
+    return window.ethereum?.request({
+      method: 'wallet_invokeSnap',
+      params: [
+        snapId,
+        {
+          method: 'get_state',
+        },
+      ],
+    });
+  };
+
   // async function reconnect() {
   //   const profile = await window.ethereum?.request({
   //     method: 'wallet_invokeSnap',
@@ -97,6 +131,12 @@ function SnapProvider({ children }) {
       selectedAddress,
       provider: provider,
       isSnapOn,
+      isSnapInstalled,
+      getSnapState,
+
+      // status: {
+
+      // }
     }),
     [provider?.chainId, selectedAddress, isSnapOn],
   );

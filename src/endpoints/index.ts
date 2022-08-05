@@ -6,7 +6,7 @@ import { customURLSearchParams } from '../lib';
  * @param access_token
  * @returns
  */
-export const fetchProfile = (profileId: string, access_token: string) => {
+export const fetchProfile = async (profileId: string, access_token: string) => {
   return fetch(`https://api.monerium.dev/profiles/${profileId}`, {
     headers: {
       Authorization: 'Bearer ' + access_token,
@@ -25,7 +25,10 @@ export const fetchProfile = (profileId: string, access_token: string) => {
  * @param access_token
  * @returns
  */
-export const fetchBalances = (profileId: string, access_token: string) => {
+export const fetchBalances = async (
+  profileId: string,
+  access_token: string,
+) => {
   return fetch(`https://api.monerium.dev/profiles/${profileId}/balances`, {
     headers: {
       Authorization: 'Bearer ' + access_token,
@@ -34,7 +37,7 @@ export const fetchBalances = (profileId: string, access_token: string) => {
     if (!res.ok) {
       throw await res.json();
     } else {
-      return res.json();
+      return await res.json();
     }
   });
 };
@@ -43,7 +46,7 @@ export const fetchBalances = (profileId: string, access_token: string) => {
  * @param access_token
  * @returns
  */
-export const fetchTokens = (access_token: string) => {
+export const fetchTokens = async (access_token: string) => {
   return fetch('https://api.monerium.dev/tokens', {
     headers: {
       Authorization: 'Bearer ' + access_token,
@@ -62,7 +65,7 @@ export const fetchTokens = (access_token: string) => {
  * @param access_token
  * @returns
  */
-export const fetchOrders = (profileId: string, access_token: string) => {
+export const fetchOrders = async (profileId: string, access_token: string) => {
   return fetch(`https://api.monerium.dev/profiles/${profileId}/orders`, {
     headers: {
       Authorization: 'Bearer ' + access_token,
@@ -83,7 +86,7 @@ export const fetchOrders = (profileId: string, access_token: string) => {
  * @param code a.k.a. authorization_code, acquired from the PKCE flow - used in verifying the code_challenge
  * @returns
  */
-export const fetchAccessToken = (
+export const fetchAccessToken = async (
   clientId: string,
   redirectUri: string,
   codeVerifier: string,
@@ -116,7 +119,10 @@ export const fetchAccessToken = (
  * @param refreshToken
  * @returns
  */
-export const fetchRefreshToken = (clientId: string, refreshToken: string) => {
+export const fetchRefreshToken = async (
+  clientId: string,
+  refreshToken: string,
+) => {
   return fetch('https://api.monerium.dev/auth/token', {
     method: 'POST',
     headers: {
